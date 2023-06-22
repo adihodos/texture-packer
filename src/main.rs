@@ -1,5 +1,4 @@
 use clap::Parser;
-use image::GenericImageView;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, RectToInsert,
     TargetBin,
@@ -7,7 +6,8 @@ use rectangle_pack::{
 use std::collections::BTreeMap;
 
 #[derive(Copy, Clone, serde::Serialize, serde::Deserialize)]
-pub struct TextureRegion {
+pub struct NamedTextureRegion {
+    pub name: u64,
     pub layer: u32,
     pub x: u32,
     pub y: u32,
@@ -17,7 +17,7 @@ pub struct TextureRegion {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct TextureAtlas {
-    frames: Vec<TextureRegion>,
+    frames: Vec<NamedTextureRegion>,
     size: (u32, u32),
     file: std::path::PathBuf,
 }
@@ -186,11 +186,19 @@ fn main() {
         frames: placement
             .packed_locations()
             .iter()
-            .filter_map(|(_bin_id, loc_data)| {
+            .filter_map(|(bin_id, loc_data)| {
                 output_images.get(&loc_data.0).map(|&(_, tex_array_id)| {
                     let (_, bin_loc_data) = loc_data;
 
-                    TextureRegion {
+                    let region_name = bin_id.file_stem().unwrap().to_string_lossy();
+                    println!("Texture region {}", region_name);
+
+                    use std::hash::Hasher;
+                    let mut h = fnv::FnvHasher::default();
+                    h.write(region_name.as_bytes());
+
+                    NamedTextureRegion {
+                        name: h.finish(),
                         layer: tex_array_id,
                         x: bin_loc_data.x(),
                         y: bin_loc_data.y(),
