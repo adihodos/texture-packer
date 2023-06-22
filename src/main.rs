@@ -38,11 +38,10 @@ fn main() {
     let packer_args = ProgramOptions::parse();
     println!("Program args {:?}", packer_args);
 
+    type ImageOutputType = image::ImageBuffer<image::LumaA<u8>, Vec<u8>>;
+
     let mut rects_to_place = GroupedRectsToPlace::<std::path::PathBuf, &'static str>::new();
-    let mut src_img_bytes: BTreeMap<
-        std::path::PathBuf,
-        image::ImageBuffer<image::LumaA<u8>, Vec<u8>>,
-    > = BTreeMap::new();
+    let mut src_img_bytes: BTreeMap<std::path::PathBuf, ImageOutputType> = BTreeMap::new();
 
     packer_args
         .input_folders
@@ -54,7 +53,9 @@ fn main() {
                 .filter(|de| de.is_file())
                 .filter_map(|path| {
                     if let Ok(img) = image::open(path.clone()) {
-                        Some((path, img.dimensions(), img.to_luma_alpha8()))
+                        let img = img.to_luma_alpha8();
+
+                        Some((path, img.dimensions(), img))
                     } else {
                         println!("Failed to open image {}", path.display());
                         None
@@ -105,7 +106,7 @@ fn main() {
     };
 
     let mut idx = 0u32;
-    let mut output_images: BTreeMap<String, (image::GrayAlphaImage, u32)> = target_bins
+    let mut output_images: BTreeMap<String, (ImageOutputType, u32)> = target_bins
         .iter()
         .map(|(atlas_id, _bin_data)| {
             let r = (
@@ -159,7 +160,7 @@ fn main() {
         .arg("--layers")
         .arg(atlas_sheet_images.len().to_string())
         .arg("--target_type")
-        .arg("R")
+        .arg("RG")
         .arg("--assign_oetf")
         .arg("linear")
         .arg("--t2")
